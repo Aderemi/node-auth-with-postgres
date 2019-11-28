@@ -9,6 +9,7 @@ module.exports = {
   query: function(text, values) {
     return new Promise(function(resolve, reject) {
       pg.connect(connectionString, function(err, client, done) {
+        if(err) handleErrorMessages(err).then(er => reject(er)).catch(() => reject());
         client.query(text, values, function(err, result) {
           done();
           if (err) {

@@ -3,63 +3,94 @@ const db = require('./database');
 const bcrypt = require('bcrypt-nodejs');
 
 module.exports = {
-  create: function(data) {
-    return new Promise(function(resolve, reject) {
-      validateUserData(data)
-        .then(function() {
-          return hashPassword(data.password);
-        })
-        .then(function(hash) {
-          return db.query(
-            'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) returning id',
-            [data.name, data.email, hash]);
-        })
-        .then(function(result) {
-          resolve(result.rows[0]);
-        })
-        .catch(function(err) {
-          reject(err);
-        });
-    });
-  },
-  authenticate: function(data) {
-    return new Promise(function(resolve, reject) {
-      if (!data.email || !data.password) {
-        reject('error: email and/or password missing')
-      }
-      else {
-        // change all of this to one transaction?
-        findOneByEmail(data.email)
-          .then(function(user) {
-            // Reset login attempts if more than 15 minutes have passed
-            if (Date.now() - user.last_login_attempt >= 900000) {
-              user.login_attempts = -1;
-            }
+    create: function(data) {
+      return new Promise(function(resolve, reject) {
+        validateUserData(data)
+          .then(function() {
+            return hashPassword(data.password);
+          })
+          .then(function(hash) {
             return db.query(
-              'UPDATE users SET last_login_attempt = now(), login_attempts = $2 WHERE email = $1 returning *',
-              [data.email, user.login_attempts + 1]
-            );
+              'INSERT INTO "user" (name, email, password) VALUES ($1, $2, $3) returning user_id',
+              [data.name, data.email, hash]);
           })
           .then(function(result) {
-            if (result.rows[0].login_attempts < 10) {
-              return result.rows[0];
-            }
-            else {
-              reject('error: attempting to login too frequently, try again in 15 minutes');
-            }
-          })
-          .then(function(user) {
-            return verifyPassword(data.password, user);
-          })
-          .then(function(result) {
-            resolve({ isAuthorized: result.isValid, id: result.id });
+            resolve(result.rows[0]);
           })
           .catch(function(err) {
             reject(err);
           });
-      }
-    });
-  }
+      });
+    },
+
+    findOne: function(data) {
+        return new Promise(function(resolve, reject) {
+            if (!data.id && !data.email) {
+                reject('error: must provide id or email')
+            }
+            else {
+                if (data.id) {
+                    findOneById(data.id)
+                        .then(function(result) {
+                            delete result.password;
+                            resolve(result);
+                        })
+                        .catch(function(err) {
+                            reject(err);
+                        });
+                }
+                else if (data.email) {
+                    findOneByEmail(data.email)
+                        .then(function(result) {
+                            delete result.password;
+                            resolve(result);
+                        })
+                        .catch(function(err) {
+                            reject(err);
+                        });
+                }
+            }
+        });
+    },
+
+      authenticate: function(data) {
+      return new Promise(function(resolve, reject) {
+        if (!data.email || !data.password) {
+          reject('error: email and/or password missing')
+        }
+        else {
+          // change all of this to one transaction?
+          findOneByEmail(data.email)
+            .then(function(user) {
+              // Reset login attempts if more than 15 minutes have passed
+              if (Date.now() - user.last_login_attempt >= 900000) {
+                user.login_attempts = -1;
+              }
+              return db.query(
+                'UPDATE "user" SET last_login_attempt = now(), login_attempts = $2 WHERE email = $1 returning *',
+                [data.email, user.login_attempts + 1]
+              );
+            })
+            .then(function(result) {
+              if (result.rows[0].login_attempts < 10) {
+                return result.rows[0];
+              }
+              else {
+                reject('error: attempting to login too frequently, try again in 15 minutes');
+              }
+            })
+            .then(function(user) {
+              return verifyPassword(data.password, user);
+            })
+            .then(function(result) {
+              resolve({ isAuthorized: result.isValid, id: result.id });
+            })
+            .catch(function(err) {
+              reject(err);
+            });
+        }
+      });
+    }
 };
 
 function hashPassword(password) {
@@ -69,7 +100,7 @@ function hashPassword(password) {
         reject(err);
       }
       else {
-        bcrypt.hash(password, salt, function(err, hash) {
+        bcrypt.hash(password, salt,() => {}, function(err, hash) {
           if (err) {
             reject(err);
           }
@@ -84,7 +115,24 @@ function hashPassword(password) {
 
 function findOneByEmail(email) {
     return new Promise(function(resolve, reject) {
-        db.query('SELECT * FROM users WHERE email = $1', [email])
+        db.query('SELECT * FROM "user" WHERE email = $1', [email])
+            .then(function(result) {
+                if (result.rows[0]) {
+                    resolve(result.rows[0]);
+                }
+                else {
+                    reject('no user found')
+                }
+            })
+            .catch(function(err) {
+                reject(err);
+            });
+    });
+}
+
+function findOneById(id) {
+    return new Promise(function(resolve, reject) {
+        db.query('SELECT * FROM "user" WHERE user_id = $1', [id])
             .then(function(result) {
                 if (result.rows[0]) {
                     resolve(result.rows[0]);
@@ -157,7 +205,7 @@ function verifyPassword(password, user) {
         reject(err);
       }
       else {
-        resolve({ isValid: result, id: user.id });
+        resolve({ isValid: result, id: user.user_id });
       }
     });
   });

@@ -49,12 +49,13 @@ app.use(function(req, res, next) {
     const token = req.body.token || req.query.token || req.headers['authorization'];
 
     if (token) {
-        jwt.verify(token, config.SECRET, function(err, decoded) {
+        jwt.verify(token, SECRET, function(err, decoded) {
             if (err) {
                 return res.status(401).json({
                     message: 'failed authentication: invalid token'
                 });
             }
+            console.log(decoded);
             User.findOne({ 'id': decoded.sub })
                 .then(function(user) {
                     req.decoded = decoded;
