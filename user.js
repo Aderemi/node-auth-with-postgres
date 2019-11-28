@@ -82,6 +82,23 @@ function hashPassword(password) {
   });
 }
 
+function findOneByEmail(email) {
+    return new Promise(function(resolve, reject) {
+        db.query('SELECT * FROM users WHERE email = $1', [email])
+            .then(function(result) {
+                if (result.rows[0]) {
+                    resolve(result.rows[0]);
+                }
+                else {
+                    reject('no user found')
+                }
+            })
+            .catch(function(err) {
+                reject(err);
+            });
+    });
+}
+
 function validateUserData(data) {
   return new Promise(function(resolve, reject) {
     if (!data.password || !data.email) {
