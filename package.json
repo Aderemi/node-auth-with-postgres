@@ -10,7 +10,7 @@
     "bcrypt-nodejs": "0.0.3",
     "body-parser": "^1.14.2",
     "colors": "^1.1.2",
-    "express": "^4.13.4",
+    "express": "^4.17.3",
     "express-subdomain": "^1.0.5",
     "jsonwebtoken": "^5.7.0",
     "pg": "^4.5.1",
